@@ -7,6 +7,7 @@ A production-ready Node.js backend service for video processing with FFmpeg and 
 - 🎬 Video upload and processing with FFmpeg
 - 🎞️ **Video layer overlay** - Composite multiple videos at specified timestamps
 - 🎵 **Audio layer mixing** - Mix multiple audio tracks with decibel and timestamp control
+- ✂️ **Video/Audio separation** - Extract video and audio tracks separately
 - ☁️ Cloudinary integration for video storage
 - 🔗 Download and process files from public URLs
 - 🔒 File type and size validation
@@ -160,13 +161,68 @@ curl -X POST https://ffmpeg-server.up.railway.app/api/videos/merge \
 
 ---
 
+## ✂️ Separate API (Extract Video & Audio)
+
+Separates a video file into separate video-only and audio-only tracks.
+
+### Endpoint
+```
+POST /api/videos/separate
+Content-Type: application/json
+```
+
+### Request Body
+
+```json
+{
+  "videoUrl": "https://example.com/video.mp4"
+}
+```
+
+### Example cURL Request
+
+```bash
+curl -X POST https://ffmpeg-server.up.railway.app/api/videos/separate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "videoUrl": "https://example.com/video.mp4"
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "success": true,
+  "message": "Video and audio separated successfully",
+  "data": {
+    "video": {
+      "publicId": "separated/videos/video_only_abc123",
+      "url": "https://res.cloudinary.com/xxx/video/upload/video_only_abc123.mp4",
+      "format": "mp4",
+      "duration": 30.5,
+      "width": 1920,
+      "height": 1080
+    },
+    "audio": {
+      "publicId": "separated/audio/audio_only_abc123",
+      "url": "https://res.cloudinary.com/xxx/video/upload/audio_only_abc123.m4a",
+      "format": "m4a",
+      "duration": 30.5
+    }
+  }
+}
+```
+
+---
+
 ## Project Structure
 
 ```
 /src
   /routes          # Route definitions
   /controllers     # Request handlers
-  /services        # Business logic (FFmpeg, Cloudinary, audio)
+  /services        # Business logic (FFmpeg, Cloudinary, audio, merge, separate)
   /utils           # Utility functions (multer, file download, error handling)
 /temp              # Temporary file storage
 ```
@@ -174,7 +230,7 @@ curl -X POST https://ffmpeg-server.up.railway.app/api/videos/merge \
 ## Supported Formats
 
 **Video:** MP4, MPEG, QuickTime (MOV), AVI, WMV, WebM, MKV  
-**Audio:** MP3, WAV, AAC, OGG, FLAC
+**Audio:** MP3, WAV, AAC, OGG, FLAC, M4A
 
 ## File Size Limit
 

@@ -31,6 +31,7 @@ app.get('/', (req, res) => {
       health: '/health',
       uploadVideo: 'POST /api/videos/upload',
       mergeVideo: 'POST /api/videos/merge',
+      separateVideo: 'POST /api/videos/separate',
       getVideo: 'GET /api/videos/:publicId',
       deleteVideo: 'DELETE /api/videos/:publicId'
     },
