@@ -5,7 +5,10 @@ A production-ready Node.js backend service for video processing with FFmpeg and 
 ## Features
 
 - 🎬 Video upload and processing with FFmpeg
+- 🎞️ **Video layer overlay** - Composite multiple videos at specified timestamps
+- 🎵 **Audio layer mixing** - Mix multiple audio tracks with decibel and timestamp control
 - ☁️ Cloudinary integration for video storage
+- 🔗 Download and process files from public URLs
 - 🔒 File type and size validation
 - 📁 Clean modular architecture
 - 🏥 Health check endpoint
@@ -18,7 +21,6 @@ A production-ready Node.js backend service for video processing with FFmpeg and 
 ## Installation
 
 ```bash
-# Install dependencies
 npm install
 ```
 
@@ -45,14 +47,14 @@ npm run dev
 npm start
 ```
 
+---
+
 ## API Endpoints
 
 ### Health Check
 ```
 GET /health
 ```
-
-Returns server status and uptime information.
 
 ### Upload Video
 ```
@@ -73,26 +75,106 @@ GET /api/videos/:publicId
 DELETE /api/videos/:publicId
 ```
 
+---
+
+## 🎬 Merge API (Video/Audio Overlay)
+
+### Endpoint
+```
+POST /api/videos/merge
+Content-Type: application/json
+```
+
+### Request Body
+
+```json
+{
+  "videoLayers": [
+    {
+      "files": ["https://example.com/vid1.mp4", "https://example.com/vid2.mp4"],
+      "startingTimestamps": [0, 3]
+    }
+  ],
+  "audioLayers": [
+    {
+      "files": ["https://example.com/aud1.mp3", "https://example.com/aud2.mp3"],
+      "startingTimestamps": [0, 4],
+      "decibels": [0, -5]
+    }
+  ]
+}
+```
+
+### Field Descriptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `videoLayers[].files` | `string[]` | Array of public URLs to video files |
+| `videoLayers[].startingTimestamps` | `number[]` | When each video starts (in seconds), overlaid on first video's frame |
+| `audioLayers[].files` | `string[]` | Array of public URLs to audio files |
+| `audioLayers[].startingTimestamps` | `number[]` | When each audio starts (in seconds) |
+| `audioLayers[].decibels` | `number[]` | Volume adjustment per audio (0 = original, -5 = quieter, +5 = louder) |
+
+### Example cURL Request
+
+```bash
+curl -X POST https://ffmpeg-server.up.railway.app/api/videos/merge \
+  -H "Content-Type: application/json" \
+  -d '{
+    "videoLayers": [
+      {
+        "files": [
+          "https://example.com/background.mp4",
+          "https://example.com/overlay.mp4"
+        ],
+        "startingTimestamps": [0, 2]
+      }
+    ],
+    "audioLayers": [
+      {
+        "files": [
+          "https://example.com/bgm.mp3",
+          "https://example.com/voiceover.mp3"
+        ],
+        "startingTimestamps": [0, 1],
+        "decibels": [-10, 0]
+      }
+    ]
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "success": true,
+  "message": "Video merged successfully",
+  "data": {
+    "url": "https://res.cloudinary.com/xxx/video/upload/merged_abc123.mp4",
+    "publicId": "videos/merged_abc123",
+    "duration": 15.5,
+    "format": "mp4"
+  }
+}
+```
+
+---
+
 ## Project Structure
 
 ```
 /src
   /routes          # Route definitions
   /controllers     # Request handlers
-  /services        # Business logic
-  /utils           # Utility functions
+  /services        # Business logic (FFmpeg, Cloudinary, audio)
+  /utils           # Utility functions (multer, file download, error handling)
 /temp              # Temporary file storage
 ```
 
-## Supported Video Formats
+## Supported Formats
 
-- MP4
-- MPEG
-- QuickTime (MOV)
-- AVI
-- WMV
-- WebM
-- MKV
+**Video:** MP4, MPEG, QuickTime (MOV), AVI, WMV, WebM, MKV  
+**Audio:** MP3, WAV, AAC, OGG, FLAC
 
 ## File Size Limit
 

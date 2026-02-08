@@ -30,6 +30,7 @@ app.get('/', (req, res) => {
     endpoints: {
       health: '/health',
       uploadVideo: 'POST /api/videos/upload',
+      mergeVideo: 'POST /api/videos/merge',
       getVideo: 'GET /api/videos/:publicId',
       deleteVideo: 'DELETE /api/videos/:publicId'
     },

@@ -101,8 +101,134 @@ const createThumbnail = (inputPath, timestamp = 1) => {
     });
 };
 
+/**
+ * Overlay multiple videos at specified timestamps
+ * First video in first layer = base timeline
+ * @param {Object[]} layers - Video layers configuration
+ * @param {string[]} layers[].files - Local paths to video files
+ * @param {number[]} layers[].startingTimestamps - Start times in seconds for each video
+ * @returns {Promise<string>} - Path to merged video file
+ */
+const overlayVideos = (layers) => {
+    return new Promise(async (resolve, reject) => {
+        if (!layers || layers.length === 0) {
+            reject(new Error('No video layers provided'));
+            return;
+        }
+
+        const outputFileName = `merged_${uuidv4()}.mp4`;
+        const tempDir = path.join(__dirname, '..', '..', 'temp');
+        const outputPath = path.join(tempDir, outputFileName);
+
+        // Flatten all video inputs from all layers
+        const allVideoInputs = [];
+        layers.forEach(layer => {
+            layer.files.forEach((file, index) => {
+                allVideoInputs.push({
+                    file,
+                    startTime: layer.startingTimestamps?.[index] || 0
+                });
+            });
+        });
+
+        if (allVideoInputs.length === 0) {
+            reject(new Error('No video files provided'));
+            return;
+        }
+
+        // If only one video, just process it
+        if (allVideoInputs.length === 1) {
+            try {
+                const result = await processVideo(allVideoInputs[0].file);
+                resolve(result);
+                return;
+            } catch (err) {
+                reject(err);
+                return;
+            }
+        }
+
+        // Get base video metadata for dimensions
+        let baseWidth = 1920;
+        let baseHeight = 1080;
+        try {
+            const metadata = await getVideoMetadata(allVideoInputs[0].file);
+            const videoStream = metadata.streams.find(s => s.codec_type === 'video');
+            if (videoStream) {
+                baseWidth = videoStream.width || 1920;
+                baseHeight = videoStream.height || 1080;
+            }
+        } catch (err) {
+            console.warn('Could not get base video metadata, using defaults');
+        }
+
+        // Build FFmpeg command
+        const command = ffmpeg();
+
+        // Add all video inputs
+        allVideoInputs.forEach(video => {
+            command.input(video.file);
+        });
+
+        // Build filter complex for video overlay
+        const filterParts = [];
+
+        // Scale base video and set as starting point
+        filterParts.push(`[0:v]scale=${baseWidth}:${baseHeight}:force_original_aspect_ratio=decrease,pad=${baseWidth}:${baseHeight}:(ow-iw)/2:(oh-ih)/2,setpts=PTS-STARTPTS[base]`);
+
+        let currentBase = '[base]';
+
+        // Overlay each subsequent video
+        for (let i = 1; i < allVideoInputs.length; i++) {
+            const video = allVideoInputs[i];
+            const startTimeInPts = video.startTime;
+
+            // Scale overlay video to match base dimensions
+            filterParts.push(`[${i}:v]scale=${baseWidth}:${baseHeight}:force_original_aspect_ratio=decrease,pad=${baseWidth}:${baseHeight}:(ow-iw)/2:(oh-ih)/2,setpts=PTS-STARTPTS+${startTimeInPts}/TB[v${i}]`);
+
+            // Overlay with enable condition based on timestamp
+            const outputLabel = i === allVideoInputs.length - 1 ? '[vout]' : `[tmp${i}]`;
+            filterParts.push(`${currentBase}[v${i}]overlay=0:0:enable='between(t,${startTimeInPts},999999)'${outputLabel}`);
+
+            currentBase = `[tmp${i}]`;
+        }
+
+        command
+            .complexFilter(filterParts.join(';'))
+            .outputOptions([
+                '-map', '[vout]',
+                '-map', '0:a?',
+                '-c:v', 'libx264',
+                '-c:a', 'aac',
+                '-preset', 'medium',
+                '-crf', '23',
+                '-movflags', '+faststart',
+                '-shortest'
+            ])
+            .output(outputPath)
+            .on('start', (cmd) => {
+                console.log('Video overlay started:', cmd);
+            })
+            .on('progress', (progress) => {
+                if (progress.percent) {
+                    console.log(`Video processing: ${Math.round(progress.percent)}%`);
+                }
+            })
+            .on('end', () => {
+                console.log('Video overlay completed');
+                resolve(outputPath);
+            })
+            .on('error', (err) => {
+                console.error('Video overlay error:', err.message);
+                reject(new Error(`Video overlay failed: ${err.message}`));
+            })
+            .run();
+    });
+};
+
 module.exports = {
     processVideo,
     getVideoMetadata,
-    createThumbnail
+    createThumbnail,
+    overlayVideos
 };
