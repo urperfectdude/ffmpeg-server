@@ -21,6 +21,22 @@ if (!fs.existsSync(tempDir)) {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Root route
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: '🚀 FFmpeg Server is running successfully!',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      uploadVideo: 'POST /api/videos/upload',
+      getVideo: 'GET /api/videos/:publicId',
+      deleteVideo: 'DELETE /api/videos/:publicId'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Routes
 app.use('/health', healthRoutes);
 app.use('/api/videos', videoRoutes);
